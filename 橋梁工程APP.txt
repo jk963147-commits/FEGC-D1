@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極簡工程進度控管</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <style>
+        /* 隱藏滾動條但保持功能，增加 App 質感 */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        body { -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .ios-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        .input-base { @apply w-full bg-gray-50 border-none rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-gray-200 focus:bg-white transition-all outline-none; }
+    </style>
+</head>
+<body class="bg-gray-100 flex justify-center min-h-screen">
+
+    <div id="app" class="w-full max-w-md bg-white h-screen overflow-y-auto relative shadow-2xl flex flex-col">
+        
+        <header class="relative h-48 flex-shrink-0">
+            <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop" 
+                 class="w-full h-full object-cover filter brightness-90" alt="Header">
+            
+            <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+
+            <h1 class="absolute bottom-4 left-4 text-white text-2xl font-bold tracking-wide">工程進度控管</h1>
+
+            <div class="absolute bottom-[-20px] right-4 flex bg-white rounded-full ios-shadow p-1 z-10">
+                <button @click="currentTab = 'eng'" 
+                        :class="['flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-sm font-medium', currentTab === 'eng' ? 'bg-black text-white' : 'text-gray-400 hover:text-gray-600']">
+                    <i class="ri-hammer-line"></i> 工程
+                </button>
+                <button @click="currentTab = 'doc'" 
+                        :class="['flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-sm font-medium', currentTab === 'doc' ? 'bg-black text-white' : 'text-gray-400 hover:text-gray-600']">
+                    <i class="ri-file-list-3-line"></i> 內業
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 pt-10 pb-24 overflow-y-auto">
+            
+            <div v-if="currentTab === 'eng'" class="space-y-6">
+                <div v-if="engItems.length === 0" class="text-center text-gray-300 mt-10">
+                    <i class="ri-hammer-line text-4xl mb-2 block"></i>
+                    尚無工程項目
+                </div>
+
+                <div v-for="(item, index) in engItems" :key="item.id" class="bg-white border border-gray-100 rounded-2xl p-5 ios-shadow space-y-4 animate-fade-in">
+                    <div class="flex justify-between items-center pb-2 border-b border-gray-50">
+                        <span class="text-xs font-bold text-gray-400">#{{ index + 1 }}</span>
+                        <button @click="removeEngItem(index)" class="text-gray-300 hover:text-red-400"><i class="ri-delete-bin-line"></i></button>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">項目類型</label>
+                        <select v-model="item.type" class="input-base bg-gray-50">
+                            <option value="基樁">基樁數量</option>
+                            <option value="基礎">基礎數量</option>
+                            <option value="墩柱">墩柱層數</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">開始日期</label>
+                            <input type="date" 
+                                   :value="getStartDate(index)" 
+                                   @input="index === 0 ? item.startDate = $event.target.value : null"
+                                   :disabled="index > 0"
+                                   class="input-base" 
+                                   :class="{'text-gray-400 bg-gray-100': index > 0}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">完成日期</label>
+                            <input type="date" v-model="item.endDate" class="input-base">
+                        </div>
+                    </div>
+
+                    <details class="group">
+                        <summary class="flex justify-between items-center font-medium cursor-pointer list-none text-sm text-gray-500 mt-2">
+                            <span>詳細資訊 (鋼筋/模板/養護)</span>
+                            <span class="transition group-open:rotate-180"><i class="ri-arrow-down-s-line"></i></span>
+                        </summary>
+                        <div class="text-neutral-600 mt-3 space-y-3 pl-2 border-l-2 border-gray-100">
+                            <div>
+                                <label class="text-xs text-gray-400">鋼筋叫料時間</label>
+                                <input type="date" v-model="item.rebarDate" class="input-base mt-1">
+                            </div>
+                            <div class="flex items-center justify-between py-2">
+                                <span class="text-sm text-gray-600">模板是否製作</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" v-model="item.formworkDone" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                                </label>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400">養護完成時間</label>
+                                <input type="datetime-local" v-model="item.curingTime" class="input-base mt-1">
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'doc'" class="space-y-6">
+                 <div v-if="docItems.length === 0" class="text-center text-gray-300 mt-10">
+                    <i class="ri-file-list-3-line text-4xl mb-2 block"></i>
+                    尚無內業資料
+                </div>
+
+                <div v-for="(item, index) in docItems" :key="item.id" class="bg-white border border-gray-100 rounded-2xl p-5 ios-shadow space-y-4">
+                    <div class="flex justify-between items-center pb-2 border-b border-gray-50">
+                        <span class="text-xs font-bold text-gray-400">DOC #{{ index + 1 }}</span>
+                        <button @click="removeDocItem(index)" class="text-gray-300 hover:text-red-400"><i class="ri-delete-bin-line"></i></button>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">文件類型</label>
+                        <select v-model="item.type" class="input-base bg-gray-50">
+                            <option value="施工圖">施工圖</option>
+                            <option value="結構計算書">結構計算書</option>
+                            <option value="施工計劃書">施工計劃書</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">開始日期</label>
+                            <input type="date" v-model="item.startDate" class="input-base">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">完成日期</label>
+                            <input type="date" v-model="item.endDate" class="input-base">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <button @click="addItem" 
+                class="absolute bottom-6 right-6 w-14 h-14 bg-black text-white rounded-full ios-shadow flex items-center justify-center text-2xl active:scale-90 transition-transform z-20">
+            <i class="ri-add-line"></i>
+        </button>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const currentTab = ref('eng'); // 'eng' or 'doc'
+                
+                const engItems = ref([
+                    { id: 1, type: '基樁', startDate: '', endDate: '', rebarDate: '', formworkDone: false, curingTime: '' }
+                ]);
+                
+                const docItems = ref([]);
+
+                // 邏輯：獲取開始日期
+                const getStartDate = (index) => {
+                    if (index === 0) {
+                        return engItems.value[0].startDate;
+                    } else {
+                        // 自動連動上一項的結束日期
+                        const prevDate = engItems.value[index - 1].endDate;
+                        engItems.value[index].startDate = prevDate; // 同步數據
+                        return prevDate;
+                    }
+                };
+
+                const addItem = () => {
+                    if (currentTab.value === 'eng') {
+                        engItems.value.push({
+                            id: Date.now(),
+                            type: '基樁',
+                            startDate: '', // 會被自動計算覆蓋
+                            endDate: '',
+                            rebarDate: '',
+                            formworkDone: false,
+                            curingTime: ''
+                        });
+                    } else {
+                        docItems.value.push({
+                            id: Date.now(),
+                            type: '施工圖',
+                            startDate: '',
+                            endDate: ''
+                        });
+                    }
+                };
+
+                const removeEngItem = (index) => engItems.value.splice(index, 1);
+                const removeDocItem = (index) => docItems.value.splice(index, 1);
+
+                return {
+                    currentTab,
+                    engItems,
+                    docItems,
+                    addItem,
+                    removeEngItem,
+                    removeDocItem,
+                    getStartDate
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
